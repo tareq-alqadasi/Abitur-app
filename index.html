@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0f6b66"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="Break Log">
+<title>Break Log</title>
+<style>
+:root{box-sizing:border-box;color-scheme:light;--bg:#eceff4;--card:#fff;--ink:#1b2430;--mut:#5d6877;--line:#d5dbe4;--acc:#0f6b66;--accT:#fff;--warn:#a84a00;--warnBg:#fff1e3}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){color-scheme:dark;--bg:#12161d;--card:#1b212b;--ink:#e8ecf2;--mut:#9aa6b6;--line:#2c3542;--acc:#4fc3bb;--accT:#0b1514;--warn:#ffb36b;--warnBg:#2c2013}}
+:root[data-theme="dark"]{color-scheme:dark;--bg:#12161d;--card:#1b212b;--ink:#e8ecf2;--mut:#9aa6b6;--line:#2c3542;--acc:#4fc3bb;--accT:#0b1514;--warn:#ffb36b;--warnBg:#2c2013}
+*,*:before,*:after{box-sizing:inherit}[hidden]{display:none!important}
+body{margin:0 auto;max-width:680px;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;padding:calc(10px + env(safe-area-inset-top,0px)) 14px calc(70px + env(safe-area-inset-bottom,0px))}
+h1{font-size:1.3rem;margin:4px 0 0}h2{font-size:1.05rem;margin:16px 0 6px}.sub,.m{color:var(--mut)}.sub{margin:0 0 8px}.m{font-size:.9rem}
+nav{display:flex;gap:5px;margin:8px 0;position:sticky;top:0;background:var(--bg);padding:4px 0;z-index:2}
+nav button{flex:1;padding:9px 2px;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;font:inherit;font-size:.85rem;font-weight:700}
+nav button.on{background:var(--acc);color:var(--accT);border-color:var(--acc)}
+.card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--acc);border-radius:8px;padding:10px 12px;margin:0 0 10px}.card.risk{border-left-color:var(--warn)}
+.row{display:flex;justify-content:space-between;gap:8px;align-items:baseline}.t{font-weight:700}
+.flag{background:var(--warnBg);color:var(--warn);border-radius:6px;padding:2px 8px;font-size:.85rem;font-weight:700;display:inline-block;margin-top:4px}
+input[type=text],input[type=date],input[type=number],textarea,select{width:100%;margin:6px 0 2px;padding:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+textarea{min-height:110px;font:13px/1.4 ui-monospace,monospace}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}.chip{padding:6px 11px;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--ink);font:inherit;font-size:.9rem}.chip.on{background:var(--acc);color:var(--accT);border-color:var(--acc)}
+.act{display:flex;gap:8px;margin-top:8px;flex-wrap:wrap}.btn{padding:10px 14px;border-radius:8px;border:1px solid var(--acc);background:var(--acc);color:var(--accT);font:inherit;font-weight:700}.btn.g{background:transparent;color:var(--ink);border-color:var(--line)}
+label.ck{display:flex;gap:8px;align-items:center;margin:6px 0}.empty{color:var(--mut);padding:12px 0}
+table{width:100%;border-collapse:collapse;font-size:.9rem}td,th{padding:5px 4px;border-bottom:1px solid var(--line);text-align:left}
+details{margin:0 0 8px}summary{cursor:pointer;font-weight:700;padding:6px 0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:9px 16px;border-radius:999px;z-index:9}
+:focus-visible{outline:3px solid var(--acc);outline-offset:2px}@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style></head><body>
+<h1>Break Log</h1><p class="sub" id="sub"></p>
+<nav id="nav"><button data-v="log">Log</button><button data-v="eve">Tonight</button><button data-v="study">Study</button><button data-v="pr">Prompts</button><button data-v="set">Setup</button></nav>
+<div id="app"></div>
+<script>
+"use strict";
+var T=["08:00","08:50","09:50","10:40","11:40","12:25","13:15","14:00","14:50"],DAYS=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+var TIERS={sum:"Full summary",sumanki:"Summary + Anki",anki:"Anki when there is content",daily:"Anki + daily review",log:"Log only"};
+var CHIPS=["HA","AB","Arbeit","Referat","Voc"];
+var R={
+cloze:["Lists to cloze notes","Turn my bullet lists into Cloze notes. Flat list: one note with the title and every bullet, one cloze per key term (c1, c2, …). Nested list: one note with the main bullets only, plus one note per sub-bullet that keeps its parent bullet as context. Keep bullet order inside a note, shuffle the order of notes. Field 1 = title, field 2 = text. Notetype: Cloze-type."],
+qa:["Recall questions","Make recall cards from the summary. Notetype: Basic (type in the answer). One question and one answer per card. Ask precisely (What are…, State…, How…) and never state the number of items. Answers hold at most 5 numbered points joined with <br>; split longer lists into natural groups, no single-child branches, no duplicates. Keep a definition and its effect on separate cards."],
+pairs:["Term and definition pairs","Extract term and definition pairs, copied verbatim. Notetype: All In One, field 1 = term, field 2 = definition. Use one tag per topic."],
+vocab:["Vocabulary","Translate each word or phrase and output pairs. Notetype: Basic (type in the answer), field 1 = source word, field 2 = translation, no extra commentary."],
+table:["Table or photo to cards","Read the table or photo. First show the parsed grid and ask which column is the front, which is the back, and which fields to merge. Where one cell sits next to several rows, repeat the single cell on each row. Copy text verbatim. Shuffle the rows."],
+wieder:["Wiedergabe (Ethics)","Write a Wiedergabe in my own words in German: author and thesis, the argument in steps, the conclusion. Use reporting verbs (laut X, X argumentiert). 150 to 250 words. Then list the 3 to 5 key positions I should be able to name."],
+lern:["Lernzettel from highlights","Expand my highlights into a structured Lernzettel: numbered sections, short bullets, bold definitions, formulas where relevant, one table where it helps. Mark anything unclear with [?] instead of guessing."],
+ex:["Practice set","Write 10 practice tasks on this topic with rising difficulty. Then a separate section with full worked solutions."],
+slice:["Split a big deck","Split this deck export (more than 20 notes) into subdecks of 10 to 20 notes by the criterion I give. Keep the original deck column unchanged and append ::NN_Name. Put anything that does not fit into 00_Other. Keep headers, separator and multi-line fields intact."]};
+var DEF={subj:{et:["Ethics","anki","","","Add a Wiedergabe for each text."],ch:["Chemistry","sum","","",""],m:["Maths","sum","","",""],bi:["Biology","sumanki","","",""],ph:["Physics","sum","","",""],in:["Informatics","sum","","",""],e:["English","anki","","","Rhetorical devices: term and definition pairs, tag E::rhetorical."],d:["German","anki","","",""],bk:["Art","daily","","","Definition and Wirkung on separate cards. No artwork examples unless I ask. For a list of types: one overview card, then one card per type."],ge:["History","anki","","",""],skek:["Social studies","daily","","",""],sp:["Sport","log","","",""],pi:["Philosophy","log","","",""]},
+tt:{1:["et","ch","m","m","bi","bi","","e",""],2:["ge","skek","ch","ch","ph","et","","bk","bk"],3:["","in","m","m","bi","e","","sp","sp"],4:["d","skek","e","e","m","ge","","ch","ch"],5:["bk","in","ph","ph","d","d","","",""]}};
+function fresh(){return{v:2,subj:JSON.parse(JSON.stringify(DEF.subj)),tt:JSON.parse(JSON.stringify(DEF.tt)),ttB:{},ab:false,logs:{},exams:[],cfg:{root:"",html:"true",tagcol:10,theme:"auto"}}}
+var S=load(),view="log",sel="",pick={};
+function load(){var d=fresh();try{var r=JSON.parse(localStorage.getItem("bl2"));if(r){d=Object.assign(d,r);d.cfg=Object.assign(fresh().cfg,r.cfg||{})}}catch(e){}return d}
+function save(){try{localStorage.setItem("bl2",JSON.stringify(S))}catch(e){toast("Could not save. Storage may be full or blocked.")}}
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function toast(m){var e=document.createElement("div");e.className="toast";e.textContent=m;document.body.appendChild(e);setTimeout(function(){e.remove()},2200)}
+function dk(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)}
+function wk(d){var t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())),n=t.getUTCDay()||7;t.setUTCDate(t.getUTCDate()+4-n);return Math.ceil(((t-Date.UTC(t.getUTCFullYear(),0,1))/864e5+1)/7)}
+function ttFor(d){return(S.ab&&wk(d)%2&&Object.keys(S.ttB).length)?S.ttB:S.tt}
+function sn(c){return S.subj[c]?S.subj[c][0]:c}function tier(c){return S.subj[c]?S.subj[c][1]:"log"}
+function lessons(d){var p=ttFor(d)[d.getDay()]||[],out=[],i=0;while(i<9){if(!p[i]){i++;continue}var s=i+1,c=p[i];while(i<9&&p[i]===c)i++;out.push({code:c,s:s,e:i,risk:i%2===1&&!!p[i]&&p[i]!==c})}return out}
+function pending(){var now=new Date(),res=[],d=new Date(now),n=0,hm=("0"+now.getHours()).slice(-2)+":"+("0"+now.getMinutes()).slice(-2);
+while(n<3){if(d.getDay()>0&&d.getDay()<6){n++;var k=dk(d);lessons(d).forEach(function(l){var id=k+"|"+l.code+"|"+l.s;if(S.logs[id])return;if(k===dk(now)&&T[l.s-1]>hm)return;l.id=id;l.k=k;l.dow=d.getDay();res.push(l)})}d.setDate(d.getDate()-1)}
+res.sort(function(a,b){return(b.risk-a.risk)||(a.k<b.k?1:a.k>b.k?-1:b.s-a.s)});return res}
+function hasInh(c){var t=tier(c);return t==="anki"||t==="daily"||t==="sumanki"}
+function card(l){return'<div class="card'+(l.risk?' risk':'')+'" data-id="'+l.id+'"><div class="row"><span class="t">'+esc(sn(l.code))+'</span><span class="m">'+DAYS[l.dow]+' '+T[l.s-1]+'</span></div>'+(l.risk?'<span class="flag">No break after this one: log it first</span>':'')+
+'<input type="text" dir="auto" placeholder="Highlight in a few words" aria-label="Highlight">'+chipsH()+(hasInh(l.code)?'<label class="ck"><input type="checkbox" class="inh"> Has content for Anki (devices, source types, terms)</label>':'')+
+'<div class="act"><button class="btn" onclick="logIt(this,0)">Save</button><button class="btn g" onclick="logIt(this,1)">Cancelled</button></div></div>'}
+function chipsH(){return'<div class="chips">'+CHIPS.map(function(c){return'<button class="chip" onclick="this.classList.toggle(\'on\')">'+c+'</button>'}).join("")+'</div>'}
+function logIt(b,x){var c=b.closest(".card"),i=c.querySelector(".inh");S.logs[c.dataset.id]={text:c.querySelector("input[type=text]").value.trim(),chips:[].map.call(c.querySelectorAll(".chip.on"),function(e){return e.textContent}),inh:!!(i&&i.checked),x:!!x,done:false,at:Date.now()};save();render();toast(x?"Marked as cancelled":"Saved")}
+function addManual(){var c=$("mc").value,d=$("md").value,t=$("mt").value.trim();if(!d||!t){toast("Pick a date and write a note");return}S.logs[d+"|"+c+"|m"+Date.now()]={text:t,chips:[],inh:hasInh(c),x:false,done:false,at:Date.now()};save();$("mt").value="";render();toast("Entry added")}
+function $(i){return document.getElementById(i)}
+function tasks(){var r=[];Object.keys(S.logs).forEach(function(id){var o=S.logs[id];if(o.x||o.done)return;var c=id.split("|")[1],t=tier(c),a=[];
+if(t==="sum")a.push("Write the full summary");if(t==="sumanki")a.push("Write the summary","prepare Anki");if((t==="anki"||t==="daily")&&o.inh)a.push("Prepare Anki");if(c==="et"&&o.inh)a.push("Wiedergabe");if(o.chips.indexOf("HA")>-1)a.push("homework");
+if(a.length)r.push({id:id,c:c,o:o,a:a.join(", ")})});return r.sort(function(x,y){return y.o.at-x.o.at})}
+function dleft(d){return Math.ceil((new Date(d+"T00:00")-new Date().setHours(0,0,0,0))/864e5)}
+function subjOpts(v){return Object.keys(S.subj).map(function(c){return'<option value="'+c+'"'+(c===v?' selected':'')+'>'+esc(sn(c))+'</option>'}).join("")}
+function entries(c){return Object.keys(S.logs).filter(function(id){var o=S.logs[id];return id.split("|")[1]===c&&!o.x&&o.text}).sort()}
+function stats(){var rows=Object.keys(S.subj).map(function(c){var ids=Object.keys(S.logs).filter(function(i){return i.split("|")[1]===c}),x=0,h=0,n=0;ids.forEach(function(i){var o=S.logs[i];if(o.x)x++;else{n++;if(o.inh)h++;if(o.chips.indexOf("HA")>-1)h+=0}});
+var ha=ids.filter(function(i){return !S.logs[i].x&&S.logs[i].chips.indexOf("HA")>-1}).length,ct=ids.filter(function(i){return !S.logs[i].x&&S.logs[i].inh}).length;
+return'<tr><td>'+esc(sn(c))+'</td><td>'+n+'</td><td>'+x+'</td><td>'+ct+'</td><td>'+(n?Math.round(100*ha/n)+"%":"-")+'</td></tr>'}).join("");
+return'<table><tr><th>Subject</th><th>Logged</th><th>Cancelled</th><th>Content</th><th>Homework</th></tr>'+rows+'</table>'}
+function buildLern(){var c=sel||Object.keys(S.subj)[0],ids=entries(c).filter(function(i){return pick[i]!==false}),sc=($("sc")||{}).value||"";
+var o="# Lernzettel: "+sn(c)+"\n"+(sc?"Exam scope: "+sc+"\n":"")+"\n";ids.forEach(function(i,n){var l=S.logs[i];o+="## "+(n+1)+". "+l.text+"\n- Date: "+i.split("|")[0]+(l.chips.length?"\n- Marked: "+l.chips.join(", "):"")+"\n- Notes:\n\n"});$("lo").value=o}
+function tog(i,v){pick[i]=v;buildLern()}
+function prompt_(){var c=$("pc").value,r=$("pr").value,tp=$("pt").value.trim(),cf=S.cfg,s=S.subj[c]||[c,"","","",""],tag=s[3]||s[0].replace(/\s+/g,""),n=cf.tagcol;
+var deck=[cf.root,s[2]||s[0]].filter(Boolean).join("::")+(tp?"::"+tp:"");
+var f="OUTPUT FORMAT (Anki text import)\n#separator:tab\n#html:"+cf.html+"\n#notetype column:1\n#deck column:2\n#tags column:"+n+"\nOne note per line with "+n+" tab-separated columns: notetype, deck, the fields, then empty padding columns, tags last (space-separated, prefix \""+tag+"\"). Deck: "+deck+". "+(cf.html==="true"?"Use HTML (<b>, <br>), never Markdown. ":"Plain text only. ")+"Each cloze note restarts at c1. Skip duplicates. Output one code block only.";
+$("po").value="SUBJECT: "+s[0]+"\n"+(s[4]?"SUBJECT RULES: "+s[4]+"\n":"")+"TASK: "+R[r][1]+"\n\n"+f}
+function copy(id){var v=$(id).value;try{navigator.clipboard.writeText(v).then(function(){toast("Copied")},function(){$(id).select();toast("Select and copy")})}catch(e){$(id).select();toast("Select and copy")}}
+function dl(name,text,type){var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([text],{type:type||"text/plain"}));a.download=name;document.body.appendChild(a);a.click();a.remove()}
+function ss(c,i,v){S.subj[c][i]=v;save()}function sc(k,v){S.cfg[k]=k==="tagcol"?Math.max(4,+v||10):v;save();theme()}
+function theme(){var t=S.cfg.theme;if(t==="auto")document.documentElement.removeAttribute("data-theme");else document.documentElement.setAttribute("data-theme",t)}
+function addSubj(){var c=$("nc").value.trim().toLowerCase(),n=$("nn").value.trim();if(!c||!n||S.subj[c]){toast("Use a new short code and a name");return}S.subj[c]=[n,"log","","",""];save();render()}
+function addExam(){var d=$("ed").value;if(!d){toast("Pick a date");return}S.exams.push({c:$("ec").value,d:d,s:$("es").value.trim()});S.exams.sort(function(a,b){return a.d<b.d?-1:1});save();render()}
+function delExam(i){S.exams.splice(i,1);save();render()}function fin(id){S.logs[id].done=true;save();render()}function del(id){if(confirm("Delete this entry?")){delete S.logs[id];save();render()}}
+function setTT(k){try{var j=JSON.parse($(k==="B"?"ttb":"tta").value||"{}");if(k==="B")S.ttB=j;else S.tt=j;save();toast("Timetable saved")}catch(e){toast("That is not valid JSON")}}
+function exp(){dl("break-log-backup-"+dk(new Date())+".json",JSON.stringify(S,null,1),"application/json")}
+function imp(inp){var f=inp.files[0];if(!f)return;var r=new FileReader();r.onload=function(){try{var j=JSON.parse(r.result);if(!j.subj||!j.logs)throw 0;if(!confirm("Replace all data in this browser with the backup?"))return;S=Object.assign(fresh(),j);S.cfg=Object.assign(fresh().cfg,j.cfg||{});save();theme();render();toast("Backup restored")}catch(e){toast("That file is not a Break Log backup")}};r.readAsText(f)}
+function reset(){if(confirm("Delete ALL data in this browser? Export a backup first.")){S=fresh();save();theme();render()}}
+function ttPrompt(){var p='Read this timetable photo. Output only JSON: {"1":[...],"2":[...],"3":[...],"4":[...],"5":[...]} for Monday to Friday. Each array has 9 strings for periods 1 to 9 (08:00, 08:50, 09:50, 10:40, 11:40, 12:25, 13:15, 14:00, 14:50). Use the lowercase subject code without the course number (et2 becomes "et"). Use "" for free periods.';var t=document.createElement("textarea");t.value=p;document.body.appendChild(t);t.select();try{document.execCommand("copy");toast("Prompt copied")}catch(e){}t.remove()}
+function render(){var el=$("app"),h="",P=pending();
+document.querySelectorAll("#nav button").forEach(function(b){b.className=b.dataset.v===view?"on":""});
+$("sub").textContent=P.length?P.length+" lesson"+(P.length>1?"s":"")+" still unlogged":"Everything logged. Nice.";
+if(view==="log"){h=(P.length?P.map(card).join(""):'<p class="empty">Nothing waiting. After the next lesson it shows up here.</p>')+
+'<details><summary>Add an entry by hand</summary><select id="mc">'+subjOpts()+'</select><input type="date" id="md" value="'+dk(new Date())+'"><input type="text" id="mt" dir="auto" placeholder="Highlight"><div class="act"><button class="btn" onclick="addManual()">Add entry</button></div></details>'}
+else if(view==="eve"){var up=S.exams.filter(function(x){var n=dleft(x.d);return n>=0&&n<=14});h=up.map(function(x){return'<div class="card risk"><span class="t">'+esc(sn(x.c))+' exam in '+dleft(x.d)+' days</span><div class="m">'+esc(x.s)+'</div></div>'}).join("");
+var dl_=Object.keys(S.subj).filter(function(c){return tier(c)==="daily"}).map(sn);if(dl_.length)h+='<div class="card"><span class="t">Daily review</span><div class="m">Anki cards: '+esc(dl_.join(", "))+'</div></div>';
+var E=tasks();h+=E.length?E.map(function(e){return'<div class="card"><div class="row"><span class="t">'+esc(sn(e.c))+'</span><span class="m">'+e.id.split("|")[0]+'</span></div><div dir="auto">'+esc(e.o.text||"(no note)")+'</div><div class="m">'+esc(e.a)+'</div><div class="act"><button class="btn" onclick="fin(\''+e.id+'\')">Done</button><button class="btn g" onclick="del(\''+e.id+'\')">Delete</button></div></div>'}).join(""):'<p class="empty">No home tasks yet.</p>'}
+else if(view==="study"){var c=sel||Object.keys(S.subj)[0];sel=c;
+h='<h2>Overview</h2>'+stats()+'<h2>Exams</h2>'+S.exams.map(function(x,i){return'<div class="card"><div class="row"><span class="t">'+esc(sn(x.c))+'</span><span class="m">'+x.d+' ('+dleft(x.d)+' d)</span></div><div dir="auto">'+esc(x.s)+'</div><div class="act"><button class="btn g" onclick="delExam('+i+')">Delete</button></div></div>'}).join("")+
+'<details><summary>Add exam</summary><select id="ec">'+subjOpts()+'</select><input type="date" id="ed"><input type="text" id="es" dir="auto" placeholder="Topics in scope"><div class="act"><button class="btn" onclick="addExam()">Add exam</button></div></details>'+
+'<h2>Lernzettel builder</h2><select onchange="sel=this.value;pick={};render()">'+subjOpts(c)+'</select><input type="text" id="sc" dir="auto" placeholder="Exam scope, e.g. Folgen, Differentialrechnung" oninput="buildLern()">'+
+entries(c).map(function(i){return'<label class="ck"><input type="checkbox" '+(pick[i]===false?'':'checked')+' onchange="tog(\''+i+'\',this.checked)"><span dir="auto">'+esc(S.logs[i].text)+' <span class="m">'+i.split("|")[0]+'</span></span></label>'}).join("")+
+'<textarea id="lo" dir="auto"></textarea><div class="act"><button class="btn" onclick="copy(\'lo\')">Copy</button><button class="btn g" onclick="dl(\'lernzettel-\'+sel+\'.md\',$(\'lo\').value)">Download .md</button></div>'}
+else if(view==="pr"){h='<select id="pc" onchange="prompt_()">'+subjOpts(sel)+'</select><select id="pr" onchange="prompt_()">'+Object.keys(R).map(function(k){return'<option value="'+k+'">'+R[k][0]+'</option>'}).join("")+'</select><input type="text" id="pt" dir="auto" placeholder="Topic (optional, becomes the last deck level)" oninput="prompt_()"><textarea id="po" style="min-height:300px" readonly></textarea><div class="act"><button class="btn" onclick="copy(\'po\')">Copy prompt</button></div><p class="m">Deck root, HTML mode and tag column come from Setup. Subject rules come from each subject there.</p>'}
+else{h='<h2>Subjects</h2>'+Object.keys(S.subj).map(function(c){var s=S.subj[c];return'<details><summary>'+esc(s[0])+' <span class="m">'+c+'</span></summary><select onchange="ss(\''+c+'\',1,this.value)">'+Object.keys(TIERS).map(function(k){return'<option value="'+k+'"'+(s[1]===k?' selected':'')+'>'+TIERS[k]+'</option>'}).join("")+'</select><input type="text" dir="auto" value="'+esc(s[2])+'" placeholder="Deck name (default: subject name)" onchange="ss(\''+c+'\',2,this.value)"><input type="text" dir="auto" value="'+esc(s[3])+'" placeholder="Tag prefix" onchange="ss(\''+c+'\',3,this.value)"><textarea dir="auto" placeholder="Rules for this subject’s Anki prompts" onchange="ss(\''+c+'\',4,this.value)">'+esc(s[4])+'</textarea></details>'}).join("")+
+'<details><summary>Add subject</summary><input type="text" id="nc" placeholder="Short code, e.g. pi"><input type="text" id="nn" placeholder="Name"><div class="act"><button class="btn" onclick="addSubj()">Add subject</button></div></details>'+
+'<h2>Anki format</h2><input type="text" value="'+esc(S.cfg.root)+'" placeholder="Deck root (optional, e.g. School::study)" onchange="sc(\'root\',this.value)"><select onchange="sc(\'html\',this.value)"><option value="true"'+(S.cfg.html==="true"?' selected':'')+'>HTML on</option><option value="false"'+(S.cfg.html==="false"?' selected':'')+'>HTML off</option></select><input type="number" value="'+S.cfg.tagcol+'" onchange="sc(\'tagcol\',this.value)"><p class="m">Number above = column that holds the tags (your export uses 10).</p>'+
+'<h2>Timetable</h2><p class="m">JSON from any LLM: {"1":[9 periods],…,"5":[…]}, Mon = 1. Empty string = free.</p><textarea id="tta">'+esc(JSON.stringify(S.tt))+'</textarea><div class="act"><button class="btn" onclick="setTT(\'A\')">Save</button><button class="btn g" onclick="ttPrompt()">Copy import prompt</button></div>'+
+'<label class="ck"><input type="checkbox" '+(S.ab?'checked':'')+' onchange="S.ab=this.checked;save();render()"> School has A/B weeks (this one is the even ISO weeks)</label>'+(S.ab?'<textarea id="ttb">'+esc(JSON.stringify(S.ttB))+'</textarea><div class="act"><button class="btn" onclick="setTT(\'B\')">Save week B</button></div>':'')+
+'<h2>Appearance</h2><select onchange="sc(\'theme\',this.value)"><option value="auto"'+(S.cfg.theme==="auto"?' selected':'')+'>Follow device</option><option value="light"'+(S.cfg.theme==="light"?' selected':'')+'>Light</option><option value="dark"'+(S.cfg.theme==="dark"?' selected':'')+'>Dark</option></select>'+
+'<h2>Backup</h2><p class="m">Your data lives only in this browser. Export before clearing site data or changing phone.</p><div class="act"><button class="btn" onclick="exp()">Export backup</button><label class="btn g">Import backup<input type="file" accept=".json" hidden onchange="imp(this)"></label><button class="btn g" onclick="reset()">Reset all</button></div>'}
+el.innerHTML=h;if(view==="study")buildLern();if(view==="pr")prompt_()}
+$("nav").onclick=function(e){if(e.target.dataset.v){view=e.target.dataset.v;render();scrollTo(0,0)}};
+theme();render();setInterval(function(){if(view==="log"&&!document.activeElement.matches("input,textarea"))render()},60000);
+try{var ic="data:image/svg+xml,"+encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="20" fill="#0f6b66"/><path d="M26 30h44M26 48h44M26 66h28" stroke="#fff" stroke-width="8" stroke-linecap="round"/></svg>');
+var mf={name:"Break Log",short_name:"Break Log",display:"standalone",start_url:location.href.split("#")[0],background_color:"#eceff4",theme_color:"#0f6b66",icons:[{src:ic,sizes:"any",type:"image/svg+xml",purpose:"any"}]};
+var l=document.createElement("link");l.rel="manifest";l.href=URL.createObjectURL(new Blob([JSON.stringify(mf)],{type:"application/manifest+json"}));document.head.appendChild(l);
+var a=document.createElement("link");a.rel="apple-touch-icon";a.href=ic;document.head.appendChild(a)}catch(e){}
+if("serviceWorker" in navigator&&location.protocol==="https:")navigator.serviceWorker.register("sw.js").catch(function(){});
+</script></body></html>
